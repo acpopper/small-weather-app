@@ -1,7 +1,6 @@
 <script setup>
 import { ref, computed, onMounted, watch } from "vue";
 import { weatherService } from "../services/weatherService";
-import { formatCityName } from "../utils/cityFormat";
 
 const props = defineProps({
   city: {
@@ -22,8 +21,11 @@ const fetchWeatherData = async (city) => {
   emit("loadingChange", true);
   error.value = null;
   try {
+    // Extract city name if it includes country
+    const cityName = city.split(",")[0].trim();
+
     const [forecastData] = await Promise.all([
-      weatherService.get3Hourly5DaysForecast(formatCityName(city)),
+      weatherService.get3Hourly5DaysForecast(cityName),
     ]);
 
     // Calculate the next 10 steps (3 hour intervals)

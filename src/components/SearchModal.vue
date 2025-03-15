@@ -1,5 +1,6 @@
 <script setup>
 import { ref, watch, onMounted, onUnmounted } from "vue";
+import { searchCities } from "../services/cityService";
 
 const props = defineProps({
   isOpen: {
@@ -8,23 +9,69 @@ const props = defineProps({
   },
 });
 
-const emit = defineEmits(["close"]);
+const emit = defineEmits(["close", "select-city"]);
 
 const searchInput = ref("");
+const recommendations = ref([]);
+const selectedIndex = ref(-1);
+const loading = ref(false);
 
-// Handle key events
+// Handle search input changes with debounce
+let debounceTimeout;
+const handleSearchInput = () => {
+  clearTimeout(debounceTimeout);
+  loading.value = true;
+
+  debounceTimeout = setTimeout(() => {
+    recommendations.value = searchCities(searchInput.value);
+    loading.value = false;
+  }, 300);
+};
+
+// Handle city selection
+const selectCity = (city) => {
+  emit("select-city", {
+    id: city.id,
+    name: city.name,
+    country: city.country,
+  });
+  emit("close");
+};
+
+// Handle key navigation
 const handleKeydown = (e) => {
   if (e.key === "Escape") {
     emit("close");
+  } else if (e.key === "ArrowDown") {
+    e.preventDefault();
+    selectedIndex.value = Math.min(
+      selectedIndex.value + 1,
+      recommendations.value.length - 1
+    );
+  } else if (e.key === "ArrowUp") {
+    e.preventDefault();
+    selectedIndex.value = Math.max(selectedIndex.value - 1, -1);
   } else if (e.key === "Enter") {
-    handleSearch();
+    if (
+      selectedIndex.value >= 0 &&
+      recommendations.value[selectedIndex.value]
+    ) {
+      selectCity(recommendations.value[selectedIndex.value]);
+    }
   }
 };
 
-const handleSearch = () => {
-  // Placeholder for future search implementation
-  console.log("Search triggered for:", searchInput.value);
-};
+// Reset state when modal is closed
+watch(
+  () => props.isOpen,
+  (newValue) => {
+    if (!newValue) {
+      searchInput.value = "";
+      recommendations.value = [];
+      selectedIndex.value = -1;
+    }
+  }
+);
 
 // Add event listener when component is mounted
 onMounted(() => {
@@ -35,16 +82,6 @@ onMounted(() => {
 onUnmounted(() => {
   document.removeEventListener("keydown", handleKeydown);
 });
-
-// Clear input when modal is closed
-watch(
-  () => props.isOpen,
-  (newValue) => {
-    if (!newValue) {
-      searchInput.value = "";
-    }
-  }
-);
 </script>
 
 <template>
@@ -52,16 +89,37 @@ watch(
     <div v-if="isOpen" class="modal-overlay" @click="emit('close')">
       <div class="modal-content" @click.stop>
         <div class="search-container">
-          <input
-            type="text"
-            v-model="searchInput"
-            placeholder="Search city..."
-            class="search-input"
-            autofocus
-          />
-          <button class="search-button" @click="handleSearch">
-            <span class="arrow">→</span>
-          </button>
+          <div class="input-wrapper">
+            <input
+              type="text"
+              v-model="searchInput"
+              @input="handleSearchInput"
+              placeholder="Search city..."
+              class="search-input"
+              autofocus
+            />
+            <div v-if="loading" class="loading-indicator">
+              <span class="loading-spinner">↻</span>
+            </div>
+          </div>
+
+          <div v-if="recommendations.length > 0" class="recommendations">
+            <div
+              v-for="(city, index) in recommendations"
+              :key="city.id"
+              class="recommendation-item"
+              :class="{ selected: index === selectedIndex }"
+              @click="selectCity(city)"
+              @mouseenter="selectedIndex = index"
+            >
+              <span class="city-name">{{ city.name }}</span>
+              <span class="country-name">{{ city.country }}</span>
+            </div>
+          </div>
+
+          <div v-else-if="searchInput && !loading" class="no-results">
+            No cities found
+          </div>
         </div>
       </div>
     </div>
@@ -97,7 +155,13 @@ watch(
 
 .search-container {
   display: flex;
-  gap: 0.75rem;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.input-wrapper {
+  position: relative;
+  display: flex;
   align-items: center;
 }
 
@@ -112,6 +176,7 @@ watch(
   transition: all 0.3s ease;
   color: #213547;
   backdrop-filter: blur(5px);
+  width: 100%;
 }
 
 .search-input::placeholder {
@@ -124,29 +189,64 @@ watch(
   box-shadow: 0 0 15px rgba(255, 255, 255, 0.2);
 }
 
-.search-button {
-  background: rgba(25, 118, 210, 0.8);
-  border: 1px solid rgba(255, 255, 255, 0.5);
-  border-radius: 8px;
-  width: 42px;
-  height: 42px;
+.loading-indicator {
+  position: absolute;
+  right: 10px;
   display: flex;
   align-items: center;
-  justify-content: center;
+}
+
+.loading-spinner {
+  display: inline-block;
+  animation: spin 1s linear infinite;
+  color: #1976d2;
+}
+
+@keyframes spin {
+  from {
+    transform: rotate(0deg);
+  }
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+.recommendations {
+  background: white;
+  border-radius: 8px;
+  overflow: hidden;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+  max-height: 300px;
+  overflow-y: auto;
+}
+
+.recommendation-item {
+  padding: 0.75rem 1rem;
   cursor: pointer;
-  transition: all 0.3s ease;
-  flex-shrink: 0;
-  backdrop-filter: blur(5px);
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  transition: background-color 0.2s;
 }
 
-.search-button:hover {
-  background: rgba(25, 118, 210, 0.9);
-  border-color: rgba(255, 255, 255, 0.8);
+.recommendation-item:hover,
+.recommendation-item.selected {
+  background-color: rgba(25, 118, 210, 0.1);
 }
 
-.arrow {
-  color: white;
-  font-size: 1.2rem;
+.city-name {
+  font-weight: 500;
+}
+
+.country-name {
+  color: #666;
+  font-size: 0.9em;
+}
+
+.no-results {
+  text-align: center;
+  padding: 1rem;
+  color: #666;
 }
 
 /* Modal transition animations */

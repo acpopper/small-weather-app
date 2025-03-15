@@ -1,22 +1,24 @@
 <script setup>
-import { ref } from "vue";
+import { ref, computed } from "vue";
 import WeatherDisplay from "./components/WeatherDisplay.vue";
 import SearchModal from "./components/SearchModal.vue";
 
 // Hardcoded cities from the mockup
 const cities = [
-  { id: 1, name: "Rio de Janeiro" },
-  { id: 2, name: "Beijing" },
-  { id: 3, name: "Los Angeles" },
+  { id: 1, name: "Rio de Janeiro", country: "BR" },
+  { id: 2, name: "Beijing", country: "CN" },
+  { id: 3, name: "Los Angeles", country: "US" },
 ];
 
 const selectedCity = ref(cities[0]);
+const selectedSearchCity = ref(null);
 const isSearchModalOpen = ref(false);
 const weatherKey = ref(0);
 const isLoading = ref(false); // For spinning the arrow wheel
 
 const selectCity = (city) => {
   selectedCity.value = city;
+  selectedSearchCity.value = null; // Clear any selected search city
 };
 
 const refreshWeather = () => {
@@ -30,13 +32,35 @@ const handleLoadingChange = (loading) => {
 const toggleSearchModal = () => {
   isSearchModalOpen.value = !isSearchModalOpen.value;
 };
+
+const handleCitySelect = (city) => {
+  selectedSearchCity.value = city;
+  selectedCity.value = null; // Deselect tab city
+  weatherKey.value++; // Trigger a weather refresh
+};
+
+// Computed property for displaying the current city name
+const currentCityDisplay = computed(() => {
+  if (selectedSearchCity.value) {
+    return `${selectedSearchCity.value.name}, ${selectedSearchCity.value.country}`;
+  }
+  return `${selectedCity.value?.name}, ${selectedCity.value?.country}` || "";
+});
+
+// Computed property for the weather component
+const weatherCity = computed(() => {
+  if (selectedSearchCity.value) {
+    return `${selectedSearchCity.value.name}, ${selectedSearchCity.value.country}`;
+  }
+  return `${selectedCity.value?.name}, ${selectedCity.value?.country}` || "";
+});
 </script>
 
 <template>
   <div class="header">
     <div class="title-container">
       <h1>Simple Weather</h1>
-      <div class="selected-city">{{ selectedCity.name }}</div>
+      <div class="selected-city">{{ currentCityDisplay }}</div>
     </div>
     <div class="header-icons">
       <span
@@ -55,7 +79,7 @@ const toggleSearchModal = () => {
         v-for="city in cities"
         :key="city.id"
         class="tab"
-        :class="{ active: selectedCity.id === city.id }"
+        :class="{ active: selectedCity?.id === city.id }"
         @click="selectCity(city)"
       >
         {{ city.name.toUpperCase() }}
@@ -64,12 +88,16 @@ const toggleSearchModal = () => {
   </div>
 
   <WeatherDisplay
-    :city="selectedCity.name"
+    :city="weatherCity"
     :key="weatherKey"
     @loading-change="handleLoadingChange"
   />
 
-  <SearchModal :is-open="isSearchModalOpen" @close="toggleSearchModal" />
+  <SearchModal
+    :is-open="isSearchModalOpen"
+    @close="toggleSearchModal"
+    @select-city="handleCitySelect"
+  />
 </template>
 
 <style scoped>
