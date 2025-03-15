@@ -7,7 +7,8 @@ export default defineConfig({
   server: {
     port: 3000,
     hmr: {
-      overlay: true, // Enable HMR overlay for error messages
+      overlay: true,
+      hot: true,
     },
   },
 });

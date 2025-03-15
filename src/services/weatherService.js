@@ -1,38 +1,22 @@
 import axios from "axios";
 
 const API_KEY = import.meta.env.VITE_WEATHER_API_KEY;
-const BASE_URL = "https://api.openweathermap.org/data/2.5";
+// Only allowed to use the forecast endpoint (free)
+const BASE_URL = "https://api.openweathermap.org/data/2.5/forecast";
 
 export const weatherService = {
-  async getCurrentWeather(city) {
+  async get3Hourly5DaysForecast(city) {
     try {
-      const response = await axios.get(`${BASE_URL}/weather`, {
-        params: {
-          q: city,
-          appid: API_KEY,
-          units: "metric", // Para obtener temperaturas en Celsius
-        },
-      });
-      return response.data;
-    } catch (error) {
-      console.error("Error fetching weather data:", error);
-      throw error;
-    }
-  },
-
-  async getForecast(city) {
-    try {
-      const response = await axios.get(`${BASE_URL}/forecast`, {
+      const response = await axios.get(`${BASE_URL}`, {
         params: {
           q: city,
           appid: API_KEY,
           units: "metric",
-          cnt: 5, // Limitamos a 5 días de pronóstico
         },
       });
       return response.data;
     } catch (error) {
-      console.error("Error fetching forecast data:", error);
+      console.error("Error fetching hourly forecast:", error);
       throw error;
     }
   },
